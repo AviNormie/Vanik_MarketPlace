@@ -6,6 +6,13 @@ import { APP_GUARD } from '@nestjs/core';
 import * as winston from 'winston';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
+import { PrismaModule } from './prisma/prisma.module';
+import { AuthModule } from './auth/auth.module';
+import { FarmerModule } from './farmer/farmer.module';
+import { RetailerModule } from './retailer/retailer.module';
+import { EscrowModule } from './escrow/escrow.module';
+import { WalletModule } from './wallet/wallet.module';
+import { LocationModule } from './location/location.module';
 
 @Module({
   imports: [
@@ -50,6 +57,15 @@ import { AppService } from './app.service';
         }),
       ],
     }),
+    
+    // Application modules
+    PrismaModule,
+    AuthModule,
+    FarmerModule,
+    RetailerModule,
+    EscrowModule,
+    WalletModule,
+    LocationModule,
   ],
   controllers: [AppController],
   providers: [

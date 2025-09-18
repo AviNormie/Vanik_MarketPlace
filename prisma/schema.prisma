@@ -1,0 +1,63 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+  schemas   = ["marketplace"]
+}
+
+model CropListing {
+  id            String   @id @default(uuid())
+  farmerId      String
+  cropType      String
+  quantityKg    Float
+  expectedPrice Float
+  location      String
+  status        String   @default("OPEN") // OPEN, MATCHED, SOLD
+  createdAt     DateTime @default(now())
+
+  offers        Offer[]
+
+  @@schema("marketplace")
+}
+
+model Offer {
+  id          String   @id @default(uuid())
+  retailerId  String
+  listingId   String
+  pricePerKg  Float
+  createdAt   DateTime @default(now())
+
+  listing     CropListing @relation(fields: [listingId], references: [id])
+  escrow      Escrow?
+
+  @@schema("marketplace")
+}
+
+model Escrow {
+  id           String   @id @default(uuid())
+  offerId      String   @unique
+  amountLocked Float
+  status       String   @default("LOCKED") // LOCKED, RELEASED, DISPUTE
+  createdAt    DateTime @default(now())
+
+  offer        Offer @relation(fields: [offerId], references: [id])
+
+  @@schema("marketplace")
+}
+
+model Wallet {
+  id        String   @id @default(uuid())
+  userId    String   @unique
+  balance   Float    @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@schema("marketplace")
+}
