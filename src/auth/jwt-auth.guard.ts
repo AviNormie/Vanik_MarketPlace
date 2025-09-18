@@ -1,4 +1,4 @@
-import { Injectable, ExecutionContext } from '@nestjs/common';
+import { Injectable, ExecutionContext, UnauthorizedException } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { Reflector } from '@nestjs/core';
 
@@ -24,13 +24,7 @@ export class JwtAuthGuard extends AuthGuard('jwt') {
 
   handleRequest(err: any, user: any, info: any, context: ExecutionContext) {
     if (err || !user) {
-      // For now, return a mock user for development
-      // In production, this should throw an UnauthorizedException
-      return {
-        userId: 'mock-user-id',
-        email: 'mock@example.com',
-        role: 'farmer', // Default role for testing
-      };
+      throw new UnauthorizedException('Invalid or missing JWT token');
     }
     return user;
   }
