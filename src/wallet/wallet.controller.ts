@@ -6,6 +6,7 @@ import {
   Param,
   UseGuards,
   Request,
+  Query,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { WalletService } from './wallet.service';
@@ -50,5 +51,49 @@ export class WalletController {
   @ApiOperation({ summary: 'Get current user wallet transaction history' })
   async getMyTransactionHistory(@Request() req: any) {
     return this.walletService.getWalletTransactionHistory(req.user.userId);
+  }
+
+  @Post('payment')
+  @Roles('retailer')
+  @ApiOperation({ summary: 'Process a payment from wallet' })
+  async processPayment(
+    @Request() req: any,
+    @Body() paymentData: { amount: number; description: string; referenceId?: string },
+  ) {
+    return this.walletService.processPayment(
+      req.user.userId,
+      paymentData.amount,
+      paymentData.description,
+      paymentData.referenceId,
+    );
+  }
+
+  @Post('refund')
+  @Roles('farmer', 'retailer')
+  @ApiOperation({ summary: 'Process a refund to wallet' })
+  async processRefund(
+    @Request() req: any,
+    @Body() refundData: { amount: number; description: string; referenceId?: string },
+  ) {
+    return this.walletService.processRefund(
+      req.user.userId,
+      refundData.amount,
+      refundData.description,
+      refundData.referenceId,
+    );
+  }
+
+  @Get('check-balance')
+  @Roles('retailer')
+  @ApiOperation({ summary: 'Check if wallet has sufficient balance for a transaction' })
+  async checkBalance(
+    @Request() req: any,
+    @Query('amount') amount: string,
+  ) {
+    const requiredAmount = parseFloat(amount);
+    if (isNaN(requiredAmount) || requiredAmount <= 0) {
+      throw new Error('Invalid amount provided');
+    }
+    return this.walletService.checkBalance(req.user.userId, requiredAmount);
   }
 }

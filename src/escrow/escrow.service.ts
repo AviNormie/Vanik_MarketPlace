@@ -1,10 +1,14 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { WalletService } from '../wallet/wallet.service';
 import { LockEscrowDto } from './dto/lock-escrow.dto';
 
 @Injectable()
 export class EscrowService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private walletService: WalletService,
+  ) {}
 
   async lockFunds(retailerId: string, lockEscrowDto: LockEscrowDto) {
     // Get offer details
@@ -30,38 +34,36 @@ export class EscrowService {
 
     const totalAmount = offer.pricePerKg * offer.listing.quantityKg;
 
-    // Check retailer wallet balance
-    const wallet = await this.prisma.wallet.findUnique({
-      where: { userId: retailerId },
-    });
-
-    if (!wallet || wallet.balance < totalAmount) {
-      throw new BadRequestException('Insufficient wallet balance');
+    // Check retailer wallet balance using wallet service
+    const balanceCheck = await this.walletService.checkBalance(retailerId, totalAmount);
+    
+    if (!balanceCheck.hasBalance) {
+      throw new BadRequestException(
+        `Insufficient wallet balance. Required: $${totalAmount}, Available: $${balanceCheck.currentBalance}`
+      );
     }
 
-    // Start transaction
-    return this.prisma.$transaction(async (tx) => {
-      // Deduct from wallet
-      await tx.wallet.update({
-        where: { userId: retailerId },
-        data: {
-          balance: {
-            decrement: totalAmount,
-          },
-        },
-      });
+    // Process payment using wallet service
+    const paymentResult = await this.walletService.processPayment(
+      retailerId,
+      totalAmount,
+      `Escrow lock for offer ${lockEscrowDto.offerId}`,
+      lockEscrowDto.offerId
+    );
 
-      // Create escrow
-      const escrow = await tx.escrow.create({
-        data: {
-          offerId: lockEscrowDto.offerId,
-          amountLocked: totalAmount,
-          status: 'LOCKED',
-        },
-      });
-
-      return escrow;
+    // Create escrow
+    const escrow = await this.prisma.escrow.create({
+      data: {
+        offerId: lockEscrowDto.offerId,
+        amountLocked: totalAmount,
+        status: 'LOCKED',
+      },
     });
+
+    return {
+      ...escrow,
+      paymentTransaction: paymentResult.transaction
+    };
   }
 
   async releaseFunds(escrowId: string) {
@@ -86,27 +88,21 @@ export class EscrowService {
 
     const farmerId = escrow.offer.listing.farmerId;
 
-    // Start transaction
+    // Release funds to farmer using wallet service
+    const releaseResult = await this.walletService.processEscrowRelease(
+      farmerId,
+      escrow.amountLocked,
+      `Escrow release for offer ${escrow.offer.id}`,
+      escrowId
+    );
+
+    // Start transaction for escrow and listing updates
     return this.prisma.$transaction(async (tx) => {
       // Update escrow status
       await tx.escrow.update({
         where: { id: escrowId },
         data: {
           status: 'RELEASED',
-        },
-      });
-
-      // Credit farmer wallet (create if doesn't exist)
-      await tx.wallet.upsert({
-        where: { userId: farmerId },
-        update: {
-          balance: {
-            increment: escrow.amountLocked,
-          },
-        },
-        create: {
-          userId: farmerId,
-          balance: escrow.amountLocked,
         },
       });
 
@@ -118,8 +114,12 @@ export class EscrowService {
         },
       });
 
-      return { message: 'Funds released successfully', escrowId };
-    });
+      return { 
+         message: 'Funds released successfully', 
+         escrowId,
+         releaseTransaction: releaseResult.transaction
+       };
+     });
   }
 
   async disputeEscrow(escrowId: string) {
