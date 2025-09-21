@@ -13,6 +13,8 @@ import { RetailerModule } from './retailer/retailer.module';
 import { EscrowModule } from './escrow/escrow.module';
 import { WalletModule } from './wallet/wallet.module';
 import { LocationModule } from './location/location.module';
+import { BulkOrderModule } from './bulk-order/bulk-order.module';
+import { OfferModule } from './offer/offer.module';
 
 @Module({
   imports: [
@@ -66,6 +68,8 @@ import { LocationModule } from './location/location.module';
     EscrowModule,
     WalletModule,
     LocationModule,
+    BulkOrderModule,
+    OfferModule,
   ],
   controllers: [AppController],
   providers: [

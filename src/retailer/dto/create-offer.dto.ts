@@ -11,4 +11,9 @@ export class CreateOfferDto {
   @IsNumber()
   @IsPositive()
   pricePerKg: number;
+
+  @ApiProperty({ example: 100, description: 'Quantity in kg' })
+  @IsNumber()
+  @IsPositive()
+  quantityKg: number;
 }

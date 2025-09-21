@@ -23,6 +23,23 @@ model CropListing {
   createdAt     DateTime @default(now())
 
   offers        Offer[]
+  bulkOrderItems BulkOrderItem[]
+
+  @@schema("marketplace")
+}
+
+model Negotiation {
+  id          String   @id @default(uuid())
+  offerId     String
+  fromUserId  String   // Who made this negotiation step
+  toUserId    String   // Who should respond
+  type        String   // COUNTER_OFFER, ACCEPT, REJECT, MESSAGE
+  pricePerKg  Float?   // New price if counter offer
+  quantityKg  Float?   // New quantity if counter offer
+  message     String?  // Optional message
+  createdAt   DateTime @default(now())
+
+  offer       Offer @relation(fields: [offerId], references: [id])
 
   @@schema("marketplace")
 }
@@ -32,10 +49,16 @@ model Offer {
   retailerId  String
   listingId   String
   pricePerKg  Float
+  quantityKg  Float
+  status      String   @default("PENDING") // PENDING, ACCEPTED, REJECTED, COUNTERED, EXPIRED
+  message     String?  // Optional message from retailer
+  expiresAt   DateTime?
   createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
   listing     CropListing @relation(fields: [listingId], references: [id])
   escrow      Escrow?
+  negotiations Negotiation[]
 
   @@schema("marketplace")
 }
@@ -58,6 +81,47 @@ model Wallet {
   balance   Float    @default(0)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  @@schema("marketplace")
+}
+
+model BulkOrder {
+  id          String   @id @default(uuid())
+  retailerId  String
+  totalAmount Float
+  status      String   @default("PENDING") // PENDING, CONFIRMED, PAID, COMPLETED, CANCELLED
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  items       BulkOrderItem[]
+
+  @@schema("marketplace")
+}
+
+model BulkOrderItem {
+  id          String   @id @default(uuid())
+  bulkOrderId String
+  listingId   String
+  quantityKg  Float
+  pricePerKg  Float
+  totalPrice  Float
+  createdAt   DateTime @default(now())
+
+  bulkOrder   BulkOrder    @relation(fields: [bulkOrderId], references: [id])
+  listing     CropListing  @relation(fields: [listingId], references: [id])
+
+  @@schema("marketplace")
+}
+
+model Transaction {
+  id          String   @id @default(uuid())
+  userId      String
+  type        String   // TOPUP, PAYMENT, WITHDRAWAL, REFUND, ESCROW_RELEASE
+  amount      Float
+  description String
+  status      String   @default("COMPLETED") // PENDING, COMPLETED, FAILED
+  referenceId String?  // Reference to order, escrow, etc.
+  createdAt   DateTime @default(now())
 
   @@schema("marketplace")
 }
